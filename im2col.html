@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>im2col 실시간 코드 매칭 시각화 (규격 커스텀 조절)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            margin: 0;
+        }
+        h1 { margin-bottom: 5px; color: #2c3e50; }
+        .info { color: #555; max-width: 1000px; text-align: center; font-size: 0.95rem; line-height: 1.5; }
+        
+        /* 규격 설정 패널 스타일 */
+        .config-panel {
+            background: #e8ecef;
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+        .config-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .config-group input {
+            width: 45px;
+            padding: 6px;
+            font-size: 0.9rem;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        .apply-btn {
+            background-color: #34495e;
+            color: white;
+            padding: 8px 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .apply-btn:hover { background-color: #2c3e50; }
+
+        .controls {
+            margin: 20px 0;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1rem;
+            font-weight: bold;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #start-btn { background-color: #2ecc71; }
+        #start-btn:hover { background-color: #27ae60; }
+        #pause-btn { background-color: #f39c12; }
+        #pause-btn:hover { background-color: #d35400; }
+        #reset-btn { background-color: #e74c3c; }
+        #reset-btn:hover { background-color: #c0392b; }
+        button:disabled { background-color: #bdc3c7 !important; cursor: not-allowed; }
+        
+        select {
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        #status-text {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #d35400;
+            margin-bottom: 20px;
+            min-height: 27px;
+            background: #fff3e0;
+            padding: 8px 20px;
+            border-radius: 20px;
+            border: 1px solid #ffe0b2;
+            width: fit-content;
+        }
+
+        .main-layout {
+            display: flex;
+            gap: 25px;
+            align-items: flex-start;
+            max-width: 1800px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .section {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            max-height: 75vh;
+            overflow-y: auto;
+        }
+        .section-title {
+            text-align: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #eee;
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+        }
+
+        /* 그리드 공통 디자인 */
+        .batch-container { display: flex; flex-direction: column; gap: 15px; }
+        .batch-box {
+            border: 2px dashed #b2bec3;
+            padding: 15px 10px 10px 10px;
+            border-radius: 8px;
+            position: relative;
+            background: #fafafa;
+        }
+        .batch-label {
+            position: absolute;
+            top: -12px;
+            left: 10px;
+            background: #34495e;
+            color: white;
+            padding: 2px 8px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border-radius: 4px;
+        }
+        .channels-wrapper { display: flex; gap: 10px; flex-wrap: wrap; }
+        .channel-box { display: flex; flex-direction: column; align-items: center; }
+        .channel-label { font-size: 0.8rem; font-weight: bold; margin-bottom: 4px; }
+        
+        .grid { display: grid; gap: 2px; background: #e0e0e0; padding: 2px; border-radius: 4px; }
+        .cell {
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            font-weight: bold;
+            font-size: 0.65rem;
+            transition: all 0.1s ease;
+        }
+
+        .c0 { border: 1px solid #ffb8b8; }
+        .c1 { border: 1px solid #b8e994; }
+        .c2 { border: 1px solid #81ecec; }
+        .c-other { border: 1px solid #ffeaa7; }
+
+        /* 다이나믹 활성화 색상 프로필 (0, 1, 2 채널 외에는 기본 주황 계열 대응) */
+        .f-active-c0 { background-color: #ff7675 !important; color: white; transform: scale(1.05); z-index: 2; }
+        .f-active-c1 { background-color: #55efc4 !important; color: white; transform: scale(1.05); z-index: 2; }
+        .f-active-c2 { background-color: #74b9ff !important; color: white; transform: scale(1.05); z-index: 2; }
+        .f-active-c-other { background-color: #eab543 !important; color: white; transform: scale(1.05); z-index: 2; }
+        
+        .row-highlight { background-color: #f1f2f6; outline: 2px solid #2d3436; }
+        
+        .out-filled-c0 { background-color: #ffcdcd !important; color: #c0392b; }
+        .out-filled-c1 { background-color: #d4edda !important; color: #155724; }
+        .out-filled-c2 { background-color: #cce5ff !important; color: #004085; }
+        .out-filled-c-other { background-color: #fff9db !important; color: #d63031; }
+
+        .out-cell { border: 1px solid #dfe6e9; width: 32px; height: 26px; font-size: 0.65rem; }
+        .header-cell {
+            background-color: #6c5ce7;
+            color: white;
+            font-size: 0.55rem;
+            font-weight: bold;
+            height: 32px;
+            border: 1px solid #5758bb;
+            line-height: 1.2;
+        }
+
+        .code-container {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #2d3436;
+            color: #dfe6e9;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            width: 480px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .code-line { padding: 2px 6px; border-radius: 4px; transition: background-color 0.1s; white-space: pre; }
+        .code-line.active { background-color: #0984e3; color: #fff; font-weight: bold; }
+        .code-comment { color: #b2bec3; }
+        .code-keyword { color: #ff7675; font-weight: bold; }
+        .code-def { color: #ffeaa7; }
+    </style>
+</head>
+<body>
+
+    <h1>im2col 실시간 매칭 시각화 (규격 자유 조절 모델)</h1>
+    <div class="info">
+        아래 입력창에서 하이퍼파라미터를 원하는 대로 수정하고 <b>[새 규격 적용 및 초기화]</b>를 클릭하세요.<br>
+        (※ 연산량 과다로 인한 브라우저 멈춤 방지를 위해 N, C, H, W 등은 1~5 사이의 값을 권장합니다.)
+    </div>
+
+    <div class="config-panel">
+        <div class="config-group"><label>N (배치):</label><input type="number" id="input-N" value="2" min="1" max="5"></div>
+        <div class="config-group"><label>C (채널):</label><input type="number" id="input-C" value="2" min="1" max="5"></div>
+        <div class="config-group"><label>H (높이):</label><input type="number" id="input-H" value="4" min="1" max="8"></div>
+        <div class="config-group"><label>W (너비):</label><input type="number" id="input-W" value="4" min="1" max="8"></div>
+        <div class="config-group"><label>Filter H:</label><input type="number" id="input-FH" value="2" min="1" max="5"></div>
+        <div class="config-group"><label>Filter W:</label><input type="number" id="input-FW" value="2" min="1" max="5"></div>
+        <div class="config-group"><label>Stride:</label><input type="number" id="input-Stride" value="1" min="1" max="4"></div>
+        <div class="config-group"><label>Pad:</label><input type="number" id="input-Pad" value="0" min="0" max="4"></div>
+        <button class="apply-btn" onclick="applyCustomConfig()">새 규격 적용 및 초기화</button>
+    </div>
+
+    <div class="controls">
+        <label for="speed-select"><b>진행 속도:</b></label>
+        <select id="speed-select" onchange="adjustSpeedDuringPlayback()">
+            <option value="300">매우 빠르게</option>
+            <option value="700">빠르게</option>
+            <option value="1400" selected>보통</option>
+            <option value="2500">느리게</option>
+        </select>
+        <button id="start-btn" onclick="startSimulation()">시뮬레이션 시작</button>
+        <button id="pause-btn" onclick="togglePause()" disabled>정지</button>
+        <button id="reset-btn" onclick="resetSimulation()">초기화</button>
+    </div>
+
+    <div id="status-text">규격을 세팅한 후 시작 버튼을 누르세요.</div>
+
+    <div class="main-layout">
+        <div class="section">
+            <div class="section-title">Python Code Matrix Matching</div>
+            <div class="code-container">
+                <div class="code-line" id="line-1"><span class="code-keyword">def</span> <span class="code-def">im2col</span>(input_data, filter_h, filter_w, stride=1, pad=0):</div>
+                <div class="code-line" id="line-2">    N, C, H, W = input_data.shape</div>
+                <div class="code-line" id="line-3">    out_h = (H + 2*pad - filter_h)//stride + 1</div>
+                <div class="code-line" id="line-4">    out_w = (W + 2*pad - filter_w)//stride + 1</div>
+                <div class="code-line" id="line-5">    img = np.pad(input_data, [...], 'constant')</div>
+                <div class="code-line" id="line-6">    col = np.zeros((N, C, filter_h, filter_w, out_h, out_w))</div>
+                <div class="code-line" id="line-7">    </div>
+                <div class="code-line" id="line-8" style="color: #fdcb6e;"><span class="code-keyword">    for</span> y <span class="code-keyword">in</span> range(filter_h):</div>
+                <div class="code-line" id="line-9">        y_max = y + stride*out_h</div>
+                <div class="code-line" id="line-10" style="color: #fdcb6e;"><span class="code-keyword">        for</span> x <span class="code-keyword">in</span> range(filter_w):</div>
+                <div class="code-line" id="line-11">            x_max = x + stride*out_w</div>
+                <div class="code-line" id="line-12" style="color: #fab1a0; font-weight: 500;">            col[:, :, y, x, :, :] = img[:, :, y:y_max:stride, x:x_max:stride]</div>
+                <div class="code-line" id="line-13">            </div>
+                <div class="code-line" id="line-14"><span class="code-keyword">    col</span> = col.transpose(0, 4, 5, 1, 2, 3).reshape(N*out_h*out_w, -1)</div>
+                <div class="code-line" id="line-15">    <span class="code-keyword">return</span> col</div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">4D Input Image Data (<span id="txt-shape-in"></span>)</div>
+            <div id="batch-container" class="batch-container"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">im2col 2D Matrix (<span id="txt-shape-out"></span>)</div>
+            <div id="output-grid" class="grid"></div>
+        </div>
+    </div>
+
+    <script>
+        // 동적으로 조절될 내부 전역 하이퍼파라미터 규격 기본값
+        let N = 2, C = 2, H = 4, W = 4;
+        let FH = 2, FW = 2;
+        let Stride = 1, Pad = 0;
+        let OH = 3, OW = 3;
+        
+        let timeouts = [];
+        let isPaused = false;
+        let currentStepIndex = 0;
+        let timelineEvents = [];
+
+        function applyCustomConfig() {
+            resetSimulation();
+            
+            N = parseInt(document.getElementById('input-N').value);
+            C = parseInt(document.getElementById('input-C').value);
+            H = parseInt(document.getElementById('input-H').value);
+            W = parseInt(document.getElementById('input-W').value);
+            FH = parseInt(document.getElementById('input-FH').value);
+            FW = parseInt(document.getElementById('input-FW').value);
+            Stride = parseInt(document.getElementById('input-Stride').value);
+            Pad = parseInt(document.getElementById('input-Pad').value);
+
+            // 출력 Feature Map 셰이프 계산 수식 적용
+            OH = Math.floor((H + 2 * Pad - FH) / Stride) + 1;
+            OW = Math.floor((W + 2 * Pad - FW) / Stride) + 1;
+
+            if (OH <= 0 || OW <= 0) {
+                alert("⚠️ 에러: 출력 데이터 크기(out_h, out_w)가 0 이하입니다!\n정상적인 필터 크기 및 세팅을 입력해주세요.");
+                return;
+            }
+
+            init();
+        }
+
+        function init() {
+            // 레이블 안내 텍스트 갱신
+            document.getElementById('txt-shape-in').innerText = `N=${N}, C=${C}, H=${H}, W=${W}, Pad=${Pad}`;
+            document.getElementById('txt-shape-out').innerText = `${N*OH*OW} Rows × ${C*FH*FW} Cols`;
+
+            const batchContainer = document.getElementById('batch-container');
+            batchContainer.innerHTML = '';
+
+            // 패딩이 적용되었을 때의 내부 가상 버퍼 크기 산출
+            const paddedH = H + 2 * Pad;
+            const paddedW = W + 2 * Pad;
+
+            for(let n=0; n<N; n++) {
+                const bBox = document.createElement('div');
+                bBox.classList.add('batch-box');
+                bBox.id = `batch-${n}`;
+                bBox.innerHTML = `<div class="batch-label">배치 (N = ${n})</div>`;
+                
+                const cWrapper = document.createElement('div');
+                cWrapper.classList.add('channels-wrapper');
+
+                for(let c=0; c<C; c++) {
+                    const cBox = document.createElement('div');
+                    cBox.classList.add('channel-box');
+                    
+                    let colorClass = c === 0 ? 'c0' : c === 1 ? 'c1' : c === 2 ? 'c2' : 'c-other';
+                    let labelColor = c === 0 ? '#e74c3c' : c === 1 ? '#27ae60' : c === 2 ? '#2980b9' : '#f39c12';
+                    cBox.innerHTML = `<div class="channel-label" style="color: ${labelColor}">Ch ${c}</div>`;
+
+                    const grid = document.createElement('div');
+                    grid.classList.add('grid');
+                    grid.style.gridTemplateColumns = `repeat(${paddedW}, 30px)`;
+
+                    for(let h=0; h<paddedH; h++) {
+                        for(let w=0; w<paddedW; w++) {
+                            const cell = document.createElement('div');
+                            cell.classList.add('cell', colorClass);
+                            cell.id = `in-${n}-${c}-${h}-${w}`;
+                            
+                            // 패딩 영역 검출 연산 분기
+                            if (h < Pad || h >= H + Pad || w < Pad || w >= W + Pad) {
+                                cell.innerText = '0';
+                                cell.style.backgroundColor = '#edf2f7';
+                                cell.style.color = '#a0aec0';
+                                cell.style.fontWeight = 'normal';
+                            } else {
+                                // 고유성 값 부여 (인덱스 패턴 매칭 구조)
+                                cell.innerText = `${n}${c}${h - Pad}${w - Pad}`;
+                            }
+                            grid.appendChild(cell);
+                        }
+                    }
+                    cBox.appendChild(grid);
+                    cWrapper.appendChild(cBox);
+                }
+                bBox.appendChild(cWrapper);
+                batchContainer.appendChild(bBox);
+            }
+
+            const outputGrid = document.getElementById('output-grid');
+            outputGrid.innerHTML = '';
+            outputGrid.style.gridTemplateColumns = `repeat(${C * FH * FW}, 34px)`;
+
+            // 헤더 생성
+            for(let c=0; c<C; c++) {
+                for(let fh=0; fh<FH; fh++) {
+                    for(let fw=0; fw<FW; fw++) {
+                        const hCell = document.createElement('div');
+                        hCell.classList.add('cell', 'header-cell');
+                        hCell.innerText = `Ch${c}\n[${fh},${fw}]`;
+                        outputGrid.appendChild(hCell);
+                    }
+                }
+            }
+
+            // 출력 빈 버퍼 셀 생성
+            for(let r=0; r < N * OH * OW; r++) {
+                for(let col=0; col < C * FH * FW; col++) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell', 'out-cell');
+                    cell.id = `out-${r}-${col}`;
+                    cell.innerText = '0';
+                    outputGrid.appendChild(cell);
+                }
+            }
+            highlightCodeLine(0);
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.remove('f-active-c0', 'f-active-c1', 'f-active-c2', 'f-active-c-other', 'row-highlight');
+            });
+        }
+
+        function highlightCodeLine(lineNum) {
+            document.querySelectorAll('.code-line').forEach(line => line.classList.remove('active'));
+            if(lineNum > 0) {
+                document.getElementById(`line-${lineNum}`).classList.add('active');
+            }
+        }
+
+        function buildTimeline() {
+            timelineEvents = [];
+            timelineEvents.push({ line: 2, status: `⚙️ <b>Line 2 실행</b>: 형상 파악 완료. (N=${N}, C=${C}, H=${H}, W=${W})` });
+            timelineEvents.push({ line: 3, status: `⚙️ <b>Line 3~4 실행</b>: 매칭 공식 계산 결과 출력 특성 구조는 out_h=${OH}, out_w=${OW} 입니다.` });
+            timelineEvents.push({ line: 5, status: `⚙️ <b>Line 5 실행</b>: np.pad 적용 완료. (설정된 패딩 폭: ${Pad})` });
+            timelineEvents.push({ line: 6, status: "⚙️ <b>Line 6 실행</b>: 변환용 다차원 zeros 임시 격자를 메모리에 빌드했습니다." });
+
+            for (let fy = 0; fy < FH; fy++) {
+                for (let fx = 0; fx < FW; fx++) {
+                    timelineEvents.push({
+                        line: 8,
+                        status: `🐾 <b>루프 제어</b>: 필터 내부 상대좌표 <span style='color:#e67e22; font-size:1.1rem;'>y = ${fy}</span> 진입`,
+                        action: { type: 'loop_init', fy, fx }
+                    });
+                    timelineEvents.push({ line: 9, action: { type: 'calc' } });
+                    timelineEvents.push({
+                        line: 10,
+                        status: `🐾 <b>루프 제어</b>: 필터 내부 상대좌표 <span style='color:#2ecc71; font-size:1.1rem;'>x = ${fx}</span> 진입`,
+                    });
+                    timelineEvents.push({ line: 11, action: { type: 'calc' } });
+                    timelineEvents.push({
+                        line: 12,
+                        status: `🔥 <b>Line 12 연산 실행</b>: 필터 조각 [${fy}, ${fx}] 데이터 전격 슬라이싱 블록 추출 및 2D 대입!`,
+                        action: { type: 'assign', fy, fx }
+                    });
+                }
+            }
+
+            timelineEvents.push({ line: 14, status: "⚙️ <b>Line 14 실행</b>: 축 정렬(transpose) 및 평탄화(reshape) 공정 가동." });
+            timelineEvents.push({ line: 15, status: "🎉 <b>Line 15 완료</b>: 모든 커스텀 규격 평탄화가 완비되었습니다!" });
+        }
+
+        function runTimeline() {
+            if (isPaused || currentStepIndex >= timelineEvents.length) return;
+
+            const speed = parseInt(document.getElementById('speed-select').value);
+            const ev = timelineEvents[currentStepIndex];
+
+            highlightCodeLine(ev.line);
+            if (ev.status) document.getElementById('status-text').innerHTML = ev.status;
+
+            if (ev.action) {
+                if (ev.action.type === 'loop_init' || ev.action.type === 'assign') {
+                    clearHighlights();
+                    const fy = ev.action.fy;
+                    const fx = ev.action.fx;
+                    let globalRowIdx = 0;
+
+                    for (let n = 0; n < N; n++) {
+                        for (let y = 0; y < OH; y++) {
+                            for (let x = 0; x < OW; x++) {
+                                // stride 보정 연산 적용
+                                const imgH = y * Stride + fy;
+                                const imgW = x * Stride + fx;
+
+                                if (ev.action.type === 'assign') {
+                                    const baseRow = document.getElementById(`out-${globalRowIdx}-0`);
+                                    if(baseRow) baseRow.parentElement.classList.add('row-highlight');
+                                }
+
+                                for (let c = 0; c < C; c++) {
+                                    const inCell = document.getElementById(`in-${n}-${c}-${imgH}-${imgW}`);
+                                    const outColIdx = (c * FH * FW) + (fy * FW + fx);
+                                    const outCell = document.getElementById(`out-${globalRowIdx}-${outColIdx}`);
+
+                                    let activeClass = c === 0 ? 'f-active-c0' : c === 1 ? 'f-active-c1' : c === 2 ? 'f-active-c2' : 'f-active-c-other';
+                                    let fillClass = c === 0 ? 'out-filled-c0' : c === 1 ? 'out-filled-c1' : c === 2 ? 'out-filled-c2' : 'out-filled-c-other';
+
+                                    if (inCell) {
+                                        if (ev.action.type === 'loop_init') {
+                                            inCell.classList.add(activeClass);
+                                        } else if (ev.action.type === 'assign' && outCell) {
+                                            outCell.innerText = inCell.innerText;
+                                            outCell.classList.add(fillClass);
+                                        }
+                                    }
+                                }
+                                globalRowIdx++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            currentStepIndex++;
+            if (currentStepIndex < timelineEvents.length) {
+                timeouts.push(setTimeout(runTimeline, speed));
+            } else {
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('pause-btn').disabled = true;
+            }
+        }
+
+        function startSimulation() {
+            if (!isPaused && currentStepIndex === 0) buildTimeline();
+            isPaused = false;
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('pause-btn').disabled = false;
+            document.getElementById('pause-btn').innerText = "정지";
+            runTimeline();
+        }
+
+        function togglePause() {
+            if (isPaused) {
+                isPaused = false;
+                document.getElementById('pause-btn').innerText = "정지";
+                runTimeline();
+            } else {
+                isPaused = true;
+                timeouts.forEach(t => clearTimeout(t));
+                timeouts = [];
+                document.getElementById('pause-btn').innerText = "이어하기";
+            }
+        }
+
+        function adjustSpeedDuringPlayback() {
+            if (!isPaused && timeouts.length > 0) {
+                timeouts.forEach(t => clearTimeout(t));
+                timeouts = [];
+                runTimeline();
+            }
+        }
+
+        function resetSimulation() {
+            timeouts.forEach(t => clearTimeout(t));
+            timeouts = [];
+            isPaused = false;
+            currentStepIndex = 0;
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('pause-btn').disabled = true;
+            document.getElementById('pause-btn').innerText = "정지";
+            init();
+        }
+
+        init();
+    </script>
+</body>
+</html>
