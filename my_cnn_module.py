@@ -11,6 +11,13 @@ class NeuralNetwork:
     def init_network(self):
 
         # Input Layer
+        W = np.random.randn(40000, 1, 28, 28) * np.sqrt(2 / 40000) # He 초기값
+        b = np.zeros(40000)
+
+        '''
+        # MLP
+
+        # Input Layer
         W1 = np.random.randn(784, 128) * np.sqrt(2 / 784) # He 초기값
         b1= np.zeros(128)
         # Hidden Layer 1
@@ -26,6 +33,21 @@ class NeuralNetwork:
         self.layers['Affine2'] = ly.Affine(W2, b2)
         self.layers['ReLU2'] = ly.ReLU()
         self.layers['Affine3'] = ly.Affine(W3, b3)
+        self.last_layer = ly.SoftmaxWithLoss()
+        '''
+
+        # CNN
+        self.layers['Conv1'] = ly.Conv2D(1, W, B)
+        self.layers['Relu1'] = ly.ReLU()
+        self.layers['Pooling1'] = ly.MaxPool()
+        self.layers['Conv2'] = ly.Conv2D(2)
+        self.layers['Relu2'] = ly.ReLU()
+        self.layers['Pooling2'] = ly.MaxPool()
+        self.layers['Conv3'] = ly.Conv2D(3)
+        self.layers['Relu3'] = ly.ReLU()
+        self.layers['Pooling3'] = ly.MaxPool()
+        self.layers['Flatten'] = ly.Flatten()
+        self.layers['Affine'] = ly.Affine()
         self.last_layer = ly.SoftmaxWithLoss()
 
     def predict(self, x : np.array):

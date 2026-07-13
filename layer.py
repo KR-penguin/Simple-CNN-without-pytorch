@@ -13,15 +13,19 @@ class Node:
         pass
 
 class Affine(Node):
-    def __init__(self, W, b):
-        self.W = W
-        self.b = b
+    def __init__(self, output_size = 10):
+        self.W = None
+        self.output_size = output_size
+        self.b = None
         self.x = None
         self.dW = None
         self.db = None
 
     def forward(self, x : np.array):
         self.x = x.copy()
+        if self.W is None:
+            self.W = np.random.randn(x.shape[1], self.output_size) * 0.1
+            self.b = np.zeros(self.output_size)
         return af.Affine(self.x, self.W, self.b)
 
     def backward(self, dout):
@@ -72,7 +76,7 @@ class Flatten(Node):
         return dout.reshape(self.original_shape)
 
 class MaxPool(Node):
-    def __init__(self, pool_h, pool_w, stride=1):
+    def __init__(self, pool_h = 2, pool_w = 2, stride=2):
         self.pool_h = pool_h
         self.pool_w = pool_w
         self.stride = stride
@@ -80,7 +84,7 @@ class MaxPool(Node):
         self.arg_max = None
 
     def forward(self, x : np.array):
-        N, C, H, W = x.shape
+        N, C, H, W = x.shape 
         self.x_shape = x.shape
         out_h = (H - self.pool_h) // self.stride + 1
         out_w = (W - self.pool_w) // self.stride + 1
@@ -131,9 +135,10 @@ class MaxPool(Node):
         return dx
 
 class Conv2D(Node):
-    def __init__(self, W, b, stride=1, pad=0):
+    def __init__(self, seqeunce : int, W = None, b = None, stride=1, pad=0):
+        self.seqeunce = seqeunce
         self.W = W # (FN, C, FH, FW)
-        self.b = b # 
+        self.b = b # (FN)
         self.stride = stride
         self.pad = pad
 
@@ -144,10 +149,14 @@ class Conv2D(Node):
         self.dB = None # bias b 미분값
 
     def forward(self, x : np.array):
-        FN, C, FH, FW = self.W.shape
         N, C, H, W = x.shape
-        out_h = (H + 2 * self.pad - FW) // self.stride + 1
-        out_w = (W + 2 * self.pad - FH) // self.stride + 1
+        if self.W is None:
+            self.W = np.random.randn(2**(self.seqeunce+3), C, H, W) * np.sqrt(2 / N)
+            self.b = np.zeros(N)
+
+        FN, C, FH, FW = self.W.shape
+        out_h = (H + 2 * self.pad - FH) // self.stride + 1
+        out_w = (W + 2 * self.pad - FW) // self.stride + 1
         col = im2col(x, FH, FW, self.stride, self.pad)
         col_W = self.W.reshape(FN, -1).T
         out = col @ col_W + self.b
@@ -171,11 +180,14 @@ class Conv2D(Node):
         self.col_W = col_W # backward를 위해서 저장
         return out
 
-
     def backward(self, dout : np.array):
         FN, C, FH, FW = self.W.shape
         # dout = (N ,FN, out_h, out_w)
         dout = dout.transpose(0, 2, 3, 1) # (N, out_h, out_w, FN)
         dout = dout.reshape(-1, FN) # (N*out_h*out_w, FN)
         self.db = dout.sum(axis=0)
-        self.dW = self.col
+        self.dW = self.col.T @ dout
+        self.dW = self.dW.T.reshape(self.W.shape)
+        dx = dout @ self.col_W.T
+        dx = col2im(dx, self.x.shape, FH, FW, self.stride, self.pad)
+        return dx
