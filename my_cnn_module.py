@@ -35,8 +35,33 @@ class NeuralNetwork:
         self.layers['Affine3'] = ly.Affine(W3, b3)
         self.last_layer = ly.SoftmaxWithLoss()
         '''
+        '''
+        # Deep CNN
+        self.layers['Conv1'] = ly.Conv2D(1, W, b)
+        self.layers['Relu1'] = ly.ReLU()
+        self.layers['Conv2'] = ly.Conv2D(2)
+        self.layers['Relu2'] = ly.ReLU()
+        self.layers['Pooling1'] = ly.MaxPool()
+        self.layers['Conv3'] = ly.Conv2D(3)
+        self.layers['Relu3'] = ly.ReLU()
+        self.layers['Conv4'] = ly.Conv2D(4)
+        self.layers['Relu4'] = ly.ReLU()
+        self.layers['Pooling2'] = ly.MaxPool()
+        self.layers['Conv5'] = ly.Conv2D(5)
+        self.layers['Relu5'] = ly.ReLU()
+        self.layers['Conv6'] = ly.Conv2D(6)
+        self.layers['Relu6'] = ly.ReLU()
+        self.layers['Pooling3'] = ly.MaxPool()
+        self.layers['Flatten'] = ly.Flatten()
+        self.layers['Affine1'] = ly.Affine(output_size=128)
+        self.layers['Relu7'] = ly.ReLU()
+        # Dropout
+        self.layers['Affine2'] = ly.Affine(output_size=10)
+        # Dropout
+        self.last_layer = ly.SoftmaxWithLoss()
+        '''
 
-        # CNN
+        # Simple CNN
         self.layers['Conv1'] = ly.Conv2D(1, W, b)
         self.layers['Relu1'] = ly.ReLU()
         self.layers['Pooling1'] = ly.MaxPool()
@@ -45,9 +70,11 @@ class NeuralNetwork:
         self.layers['Pooling2'] = ly.MaxPool()
         self.layers['Conv3'] = ly.Conv2D(3)
         self.layers['Relu3'] = ly.ReLU()
-        self.layers['Pooling3'] = ly.MaxPool()
         self.layers['Flatten'] = ly.Flatten()
-        self.layers['Affine'] = ly.Affine()
+        self.layers['Affine1'] = ly.Affine(output_size=128)
+        self.layers['Relu4'] = ly.ReLU()
+        self.layers['Dropout'] = ly.Dropout()
+        self.layers['Affine2'] = ly.Affine(output_size=10)
         self.last_layer = ly.SoftmaxWithLoss()
 
     def predict(self, x : np.array):

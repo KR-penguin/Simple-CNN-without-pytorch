@@ -135,7 +135,7 @@ class MaxPool(Node):
         return dx
 
 class Conv2D(Node):
-    def __init__(self, seqeunce : int, W = None, b = None, stride=1, pad=0):
+    def __init__(self, seqeunce : int, W = None, b = None, stride=1, pad=1):
         self.seqeunce = seqeunce
         self.W = W # (FN, C, FH, FW)
         self.b = b # (FN)
@@ -192,3 +192,21 @@ class Conv2D(Node):
         dx = dout @ self.col_W.T
         dx = col2im(dx, self.x.shape, FH, FW, self.stride, self.pad)
         return dx
+
+class Dropout(Node):
+    def __init__(self, dropout_ratio = 0.5):
+        self.dropout_ratio = dropout_ratio
+        self.mask = None # 어떤 뉴런들을 껐는지
+        self.training_flag = True # 훈련이 아닐 때는 Dropout을 적용하면 안됨
+    def forward(self, x : np.array):
+        if self.training_flag:
+            self.mask = np.random.rand(*x.shape) > self.dropout_ratio
+            result = x * self.mask / (1.0 - self.dropout_ratio)
+            # 1.0 - self.dropout_ratio 값은 Inverted Dropout(역 드롭아웃)
+            return result
+        else:
+            return x
+    def backward(self, dout):
+        return dout * self.mask
+        # 순전파 때 False(0)가 되어서 통과하지 못했던 뉴런은 self.mask를 곱하면서 역전파 때도 0이 되어버립니다.
+        # 즉, "앞으로 갈 때 문을 닫았던 뉴런은, 뒤로 돌아올 때도 학습(업데이트)을 시키지 않겠다"는 뜻입니다.
