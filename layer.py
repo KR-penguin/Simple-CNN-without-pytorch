@@ -24,7 +24,7 @@ class Affine(Node):
     def forward(self, x : np.array):
         self.x = x.copy()
         if self.W is None:
-            self.W = np.random.randn(x.shape[1], self.output_size) * 0.1
+            self.W = np.random.randn(x.shape[1], self.output_size) * np.sqrt(2 / x.shape[1])
             self.b = np.zeros(self.output_size)
         return af.Affine(self.x, self.W, self.b)
 
@@ -146,13 +146,14 @@ class Conv2D(Node):
         self.col = None # input x 행렬 펼처둔거
         self.col_W = None # weight W 행렬 펼처둔거
         self.dW = None # weight W 미분값
-        self.dB = None # bias b 미분값
+        self.db = None # bias b 미분값
 
     def forward(self, x : np.array):
         N, C, H, W = x.shape
         if self.W is None:
-            self.W = np.random.randn(2**(self.seqeunce+3), C, H, W) * np.sqrt(2 / N)
-            self.b = np.zeros(N)
+            filter_amount = 2**(self.seqeunce+3)
+            self.W = np.random.randn(filter_amount, C, 3, 3) * np.sqrt(2 / (C*3*3))
+            self.b = np.zeros(filter_amount)
 
         FN, C, FH, FW = self.W.shape
         out_h = (H + 2 * self.pad - FH) // self.stride + 1
@@ -175,7 +176,7 @@ class Conv2D(Node):
         '''
         out = (N ,FN, out_h, out_w)
         '''
-        self.x = x
+        self.x = x.copy()
         self.col = col  # backward를 위해서 저장
         self.col_W = col_W # backward를 위해서 저장
         return out

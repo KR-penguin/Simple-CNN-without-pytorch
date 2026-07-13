@@ -11,8 +11,8 @@ class NeuralNetwork:
     def init_network(self):
 
         # Input Layer
-        W = np.random.randn(40000, 1, 28, 28) * np.sqrt(2 / 40000) # He 초기값
-        b = np.zeros(40000)
+        W = np.random.randn(16, 1, 3, 3) * np.sqrt(2 / 9) # He 초기값
+        b = np.zeros(16)
 
         '''
         # MLP
@@ -37,7 +37,7 @@ class NeuralNetwork:
         '''
 
         # CNN
-        self.layers['Conv1'] = ly.Conv2D(1, W, B)
+        self.layers['Conv1'] = ly.Conv2D(1, W, b)
         self.layers['Relu1'] = ly.ReLU()
         self.layers['Pooling1'] = ly.MaxPool()
         self.layers['Conv2'] = ly.Conv2D(2)

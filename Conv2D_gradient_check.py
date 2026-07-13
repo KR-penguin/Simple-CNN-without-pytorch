@@ -14,7 +14,7 @@ def test():
     for x in range(10):
         W_small = np.random.randn(FILTER_AMOUNT, CHANNEL_AMOUNT, FILTER_HEIGHT, FILTER_WIDTH) * 0.1
         b_small = np.zeros(FILTER_AMOUNT)
-        convolution_layer = Conv2D(W_small, b_small)
+        convolution_layer = Conv2D(1, W_small, b_small)
 
         x_small = np.random.randn(BATCH_AMOUNT, CHANNEL_AMOUNT, 27, 27)
         t_small = np.array([
